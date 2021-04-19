@@ -10,7 +10,11 @@ repositories {
 dependencies {
     implementation(project(":base-services"))
     implementation(project(":tooling-api"))
-    api("com.android.tools.build:gradle:3.0.0")
+    api("com.android.tools.build:gradle:3.0.0") {
+        // unify the trove4j version we're using
+        exclude(group = libs.trove4j.substringBefore(":"), module = libs.trove4j.substringAfter(":"))
+    }
+    implementation(libs.trove4j)
 }
 
 application {
