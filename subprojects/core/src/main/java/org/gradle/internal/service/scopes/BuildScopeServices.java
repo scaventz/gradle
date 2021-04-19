@@ -66,7 +66,6 @@ import org.gradle.api.internal.project.taskfactory.TaskClassInfoStore;
 import org.gradle.api.internal.project.taskfactory.TaskFactory;
 import org.gradle.api.internal.properties.GradleProperties;
 import org.gradle.api.internal.provider.ConfigurationTimeBarrier;
-import org.gradle.api.internal.provider.DefaultConfigurationTimeBarrier;
 import org.gradle.api.internal.provider.DefaultProviderFactory;
 import org.gradle.api.internal.provider.DefaultValueSourceProviderFactory;
 import org.gradle.api.internal.provider.ValueSourceProviderFactory;
@@ -325,10 +324,6 @@ public class BuildScopeServices extends DefaultServiceRegistry {
         );
     }
 
-    protected ConfigurationTimeBarrier createConfigurationTimeBarrier(ListenerManager listenerManager) {
-        return new DefaultConfigurationTimeBarrier(listenerManager);
-    }
-
     protected ProviderFactory createProviderFactory(
         Instantiator instantiator,
         ValueSourceProviderFactory valueSourceProviderFactory,
@@ -514,15 +509,15 @@ public class BuildScopeServices extends DefaultServiceRegistry {
     protected ProjectsPreparer createBuildConfigurer(ProjectConfigurer projectConfigurer, BuildSourceBuilder buildSourceBuilder, BuildStateRegistry buildStateRegistry, BuildLoader buildLoader, ListenerManager listenerManager, BuildOperationExecutor buildOperationExecutor) {
         ModelConfigurationListener modelConfigurationListener = listenerManager.getBroadcaster(ModelConfigurationListener.class);
         return new BuildOperationFiringProjectsPreparer(
-                        new BuildTreePreparingProjectsPreparer(
-                                new DefaultProjectsPreparer(
-                                        projectConfigurer,
-                                        modelConfigurationListener,
-                                        buildOperationExecutor),
-                                buildLoader,
-                                buildStateRegistry,
-                                buildSourceBuilder),
-                        buildOperationExecutor);
+            new BuildTreePreparingProjectsPreparer(
+                new DefaultProjectsPreparer(
+                    projectConfigurer,
+                    modelConfigurationListener,
+                    buildOperationExecutor),
+                buildLoader,
+                buildStateRegistry,
+                buildSourceBuilder),
+            buildOperationExecutor);
     }
 
     protected ProjectAccessHandler createProjectAccessHandler() {
@@ -569,8 +564,8 @@ public class BuildScopeServices extends DefaultServiceRegistry {
     }
 
     protected DefaultToolingModelBuilderRegistry createBuildScopedToolingModelBuilders(List<BuildScopeToolingModelBuilderRegistryAction> registryActions,
-                                                                                final BuildOperationExecutor buildOperationExecutor,
-                                                                                ProjectStateRegistry projectStateRegistry) {
+                                                                                       final BuildOperationExecutor buildOperationExecutor,
+                                                                                       ProjectStateRegistry projectStateRegistry) {
         DefaultToolingModelBuilderRegistry registry = new DefaultToolingModelBuilderRegistry(buildOperationExecutor, projectStateRegistry);
         for (BuildScopeToolingModelBuilderRegistryAction registryAction : registryActions) {
             registryAction.execute(registry);

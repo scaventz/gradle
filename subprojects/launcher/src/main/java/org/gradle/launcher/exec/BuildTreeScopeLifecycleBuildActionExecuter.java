@@ -17,21 +17,27 @@
 package org.gradle.launcher.exec;
 
 import org.gradle.api.internal.BuildType;
-import org.gradle.internal.buildtree.BuildTreeBuildPath;
-import org.gradle.internal.buildtree.BuildTreeState;
+import org.gradle.internal.buildtree.BuildTreeController;
 import org.gradle.internal.invocation.BuildAction;
+import org.gradle.internal.buildtree.BuildActionRunner;
 import org.gradle.internal.session.BuildSessionContext;
+import org.gradle.internal.session.BuildSessionActionExecutor;
 
 /**
  * A {@link BuildActionExecuter} responsible for establishing the build tree for a single invocation of a {@link BuildAction}.
  */
-public class BuildTreeScopeLifecycleBuildActionExecuter implements BuildActionExecuter<BuildActionParameters, BuildSessionContext> {
+public class BuildTreeScopeLifecycleBuildActionExecuter implements BuildSessionActionExecutor {
     @Override
-    public BuildActionResult execute(BuildAction action, BuildActionParameters actionParameters, BuildSessionContext buildSession) {
+    public BuildActionRunner.Result execute(BuildAction action, BuildSessionContext buildSession) {
         BuildType buildType = action.isRunTasks() ? BuildType.TASKS : BuildType.MODEL;
-        try (BuildTreeState buildTree = new BuildTreeState(buildSession.getServices(), buildType, BuildTreeBuildPath.ROOT)) {
-            return buildTree.run(context ->
-                context.getBuildTreeServices().get(BuildTreeBuildActionExecutor.class).execute(action, actionParameters, context));
+        if (action.isCreateModel()) {
+            // When creating a model, do not use configure on demand or configuration cache
+            action.getStartParameter().setConfigureOnDemand(false);
+            action.getStartParameter().setConfigurationCache(false);
+        }
+
+        try (BuildTreeController buildTree = new BuildTreeController(buildSession.getServices(), buildType)) {
+            return buildTree.run(context -> context.execute(action));
         }
     }
 }

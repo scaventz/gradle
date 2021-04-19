@@ -55,7 +55,7 @@ import org.gradle.execution.plan.TaskNodeFactory
 import org.gradle.internal.Factory
 import org.gradle.internal.build.BuildStateRegistry
 import org.gradle.internal.event.ListenerManager
-import org.gradle.internal.fingerprint.FileCollectionFingerprinterRegistry
+import org.gradle.internal.execution.fingerprint.InputFingerprinter
 import org.gradle.internal.hash.ClassLoaderHierarchyHasher
 import org.gradle.internal.isolation.IsolatableFactory
 import org.gradle.internal.model.CalculatedValueContainerFactory
@@ -76,7 +76,6 @@ import org.gradle.internal.serialize.BaseSerializerFactory.LONG_SERIALIZER
 import org.gradle.internal.serialize.BaseSerializerFactory.PATH_SERIALIZER
 import org.gradle.internal.serialize.BaseSerializerFactory.SHORT_SERIALIZER
 import org.gradle.internal.serialize.BaseSerializerFactory.STRING_SERIALIZER
-import org.gradle.internal.snapshot.ValueSnapshotter
 import org.gradle.internal.state.ManagedFactoryRegistry
 import java.io.Externalizable
 
@@ -92,11 +91,10 @@ class Codecs(
     instantiator: Instantiator,
     listenerManager: ListenerManager,
     taskNodeFactory: TaskNodeFactory,
-    fingerprinterRegistry: FileCollectionFingerprinterRegistry,
+    inputFingerprinter: InputFingerprinter,
     buildOperationExecutor: BuildOperationExecutor,
     classLoaderHierarchyHasher: ClassLoaderHierarchyHasher,
     isolatableFactory: IsolatableFactory,
-    valueSnapshotter: ValueSnapshotter,
     managedFactoryRegistry: ManagedFactoryRegistry,
     parameterScheme: ArtifactTransformParameterScheme,
     actionScheme: ArtifactTransformActionScheme,
@@ -143,7 +141,7 @@ class Codecs(
         bind(AttributeContainerCodec(attributesFactory, managedFactoryRegistry))
         bind(InitialTransformationNodeCodec(buildOperationExecutor, calculatedValueContainerFactory))
         bind(ChainedTransformationNodeCodec(buildOperationExecutor, calculatedValueContainerFactory))
-        bind(TransformationStepCodec(fingerprinterRegistry))
+        bind(TransformationStepCodec(inputFingerprinter))
         bind(TransformationChainCodec())
         bind(DefaultTransformerCodec(fileLookup, actionScheme))
         bind(LegacyTransformerCodec(actionScheme))
@@ -156,7 +154,7 @@ class Codecs(
         bind(TransformedArtifactCodec(calculatedValueContainerFactory))
         bind(LocalFileDependencyBackedArtifactSetCodec(instantiator, attributesFactory, fileCollectionFactory, calculatedValueContainerFactory))
         bind(CalculatedValueContainerCodec(calculatedValueContainerFactory))
-        bind(IsolateTransformerParametersNodeCodec(parameterScheme, isolatableFactory, buildOperationExecutor, classLoaderHierarchyHasher, valueSnapshotter, fileCollectionFactory, documentationRegistry))
+        bind(IsolateTransformerParametersNodeCodec(parameterScheme, isolatableFactory, buildOperationExecutor, classLoaderHierarchyHasher, fileCollectionFactory, documentationRegistry))
         bind(FinalizeTransformDependenciesNodeCodec())
         bind(WorkNodeActionCodec)
 
@@ -296,6 +294,7 @@ class Codecs(
 
         bind(EnumCodec)
         bind(RegexpPatternCodec)
+        bind(UrlCodec)
 
         javaTimeTypes()
     }
