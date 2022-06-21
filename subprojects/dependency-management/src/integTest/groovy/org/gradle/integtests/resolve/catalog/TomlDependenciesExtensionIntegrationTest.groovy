@@ -824,4 +824,39 @@ dependencyResolutionManagement {
         })
     }
 
+    @Issue("https://github.com/gradle/gradle/issues/20060")
+    def "expect no name conflicting of accessor class files name on Windows"() {
+        tomlFile << """
+[libraries]
+com-company-libs-a = "com.company:libs-a:1.0"
+com-companylibs-b = "com.companylibs:libs-b:1.0"
+"""
+        def lib = mavenHttpRepo.module("com.company", "libs-a", "1.0").publish()
+        def lib2 = mavenHttpRepo.module("com.companylibs", "libs-b", "1.0").publish()
+        buildFile << """
+            apply plugin: 'java-library'
+
+            dependencies {
+                implementation libs.com.company.libs.a
+                implementation libs.com.companylibs.b
+            }
+        """
+
+        when:
+        lib.pom.expectGet()
+        lib.artifact.expectGet()
+        lib2.pom.expectGet()
+        lib2.artifact.expectGet()
+
+        then:
+        run ':checkDeps'
+
+        then:
+        resolve.expectGraph {
+            root(":", ":test:") {
+                module('com.company:libs-a:1.0')
+                module('com.companylibs:libs-b:1.0')
+            }
+        }
+    }
 }

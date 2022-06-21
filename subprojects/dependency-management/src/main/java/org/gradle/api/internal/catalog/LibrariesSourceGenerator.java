@@ -37,6 +37,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.io.Writer;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -51,6 +52,9 @@ public class LibrariesSourceGenerator extends AbstractSourceGenerator {
     private static final int MAX_ENTRIES = 30000;
     public static final String ERROR_HEADER = "Cannot generate dependency accessors";
     private final DefaultVersionCatalog config;
+
+    private final Map<String, Integer> classNameCounter = new HashMap<>();
+    private final Map<ClassNode, String> classNameCache = new HashMap<>();
 
     public LibrariesSourceGenerator(Writer writer,
                                     DefaultVersionCatalog config) {
@@ -71,6 +75,8 @@ public class LibrariesSourceGenerator extends AbstractSourceGenerator {
     }
 
     private void generate(String packageName, String className) throws IOException {
+        classNameCounter.clear();
+        classNameCache.clear();
         writeLn("package " + packageName + ";");
         writeLn();
         addImports();
@@ -167,7 +173,7 @@ public class LibrariesSourceGenerator extends AbstractSourceGenerator {
     private void writeBundleAccessorClass(ClassNode classNode) throws IOException {
         boolean isProvider = classNode.isAlsoProvider();
         String interfaces = isProvider ? " implements BundleNotationSupplier":"";
-        String bundleClassName = classNode.getClassName();
+        String bundleClassName = getClassName(classNode);
         List<String> aliases = classNode.aliases
             .stream()
             .sorted()
@@ -206,10 +212,30 @@ public class LibrariesSourceGenerator extends AbstractSourceGenerator {
         writeLn();
     }
 
+    private String getClassName(ClassNode classNode) {
+        if(classNode.kind != AccessorKind.library)
+            return classNode.getClassName();
+
+        return classNameCache.computeIfAbsent(classNode, this::getClassName0);
+    }
+
+    private String getClassName0(ClassNode classNode) {
+        String name = classNode.getClassName();
+        String loweredName = name.toLowerCase();
+        if (!classNameCounter.containsKey(loweredName)) {
+            classNameCounter.put(loweredName, 0);
+            return name;
+        } else {
+            int count = classNameCounter.get(loweredName) + 1;
+            classNameCounter.put(loweredName, count);
+            return name + "$" + count;
+        }
+    }
+
     private void writePluginAccessorClass(ClassNode classNode) throws IOException {
         boolean isProvider = classNode.isAlsoProvider();
         String interfaces = isProvider ? " implements PluginNotationSupplier":"";
-        String pluginClassName = classNode.getClassName();
+        String pluginClassName = getClassName(classNode);
         List<String> aliases = classNode.aliases
             .stream()
             .sorted()
@@ -302,7 +328,7 @@ public class LibrariesSourceGenerator extends AbstractSourceGenerator {
     }
 
     private void writeSubAccessorFieldFor(ClassNode classNode, AccessorKind kind) throws IOException {
-        String className = classNode.getClassName();
+        String className = getClassName(classNode);
         writeLn("private final " + className + " " + kind.accessorVariableNameFor(className) + " = new " + className + "(" + kind.getConstructorParams() + ");");
     }
 
@@ -315,11 +341,11 @@ public class LibrariesSourceGenerator extends AbstractSourceGenerator {
     private void writeLibraryAccessorClass(ClassNode classNode) throws IOException {
         boolean isProvider = classNode.isAlsoProvider();
         String interfaces = isProvider ? " implements DependencyNotationSupplier":"";
-        writeLn("public static class " + classNode.getClassName() + " extends SubDependencyFactory" + interfaces + " {");
+        writeLn("public static class " + getClassName(classNode) + " extends SubDependencyFactory" + interfaces + " {");
         indent(() -> {
             writeSubAccessorFieldsOf(classNode, AccessorKind.library);
             writeLn();
-            writeLn("public " + classNode.getClassName() + "(AbstractExternalDependencyFactory owner) { super(owner); }");
+            writeLn("public " + getClassName(classNode) + "(AbstractExternalDependencyFactory owner) { super(owner); }");
             writeLn();
             if (isProvider) {
                 String path = classNode.getFullAlias();
@@ -345,7 +371,7 @@ public class LibrariesSourceGenerator extends AbstractSourceGenerator {
     private void writeVersionAccessorClass(ClassNode classNode) throws IOException {
         boolean isProvider = classNode.isAlsoProvider();
         String interfaces = isProvider ? " implements VersionNotationSupplier":"";
-        String versionsClassName = classNode.getClassName();
+        String versionsClassName = getClassName(classNode);
         Set<String> versionAliases = classNode.getAliases();
         writeLn("public static class " + versionsClassName + " extends VersionFactory " + interfaces + " {");
         writeLn();
@@ -451,7 +477,7 @@ public class LibrariesSourceGenerator extends AbstractSourceGenerator {
     }
 
     private void writeSubAccessor(ClassNode classNode, AccessorKind kind) throws IOException {
-        String className = classNode.getClassName();
+        String className = getClassName(classNode);
         String getter = classNode.name;
         writeLn("/**");
         writeLn(" * Returns the group of " + kind.getDescription() + " at " + classNode.getPath());
