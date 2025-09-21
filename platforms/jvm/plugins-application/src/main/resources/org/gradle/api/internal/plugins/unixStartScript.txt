@@ -289,11 +289,9 @@ fi
 # an unmatched quote.
 #
 
-eval "set -- \$(
-        printf '%s\\n' "\$DEFAULT_JVM_OPTS \$JAVA_OPTS \$${optsEnvironmentVar}" |
-        xargs -n1 |
-        sed ' s~[^-[:alnum:]+,./:=@_]~\\\\&~g; ' |
-        tr '\\n' ' '
-    )" '"\$@"'
+for opt in "\$DEFAULT_JVM_OPTS" "\$JAVA_OPTS" "\$${optsEnvironmentVar}"; do
+    [ -z "\$opt" ] && continue
+    set -- \$(printf '%s' "\$opt" | sed ' s~[^-[:alnum:]+,./:=@_\\"]~\\\\&~g; ') "\$@"
+done
 
 exec "\$JAVACMD" "\$@"

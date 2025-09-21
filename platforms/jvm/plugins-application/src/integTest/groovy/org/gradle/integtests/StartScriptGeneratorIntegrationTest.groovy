@@ -20,6 +20,9 @@ import org.gradle.api.internal.plugins.ExecutableJar
 import org.gradle.api.internal.plugins.StartScriptGenerator
 import org.gradle.integtests.fixtures.AbstractIntegrationSpec
 import org.gradle.integtests.fixtures.ScriptExecuter
+import org.gradle.internal.os.OperatingSystem
+import org.gradle.process.internal.ExecHandle
+import spock.lang.Issue
 
 /**
  * Tests for {@link org.gradle.api.internal.plugins.StartScriptGenerator} that are not covered by the application plugin tests, because they are not public API.
@@ -109,5 +112,64 @@ class StartScriptGeneratorIntegrationTest extends AbstractIntegrationSpec {
         then:
         result.assertNormalExitValue()
         outputCapture.toString().contains("JAR start successful.")
+    }
+
+    @Issue("https://github.com/gradle/gradle/issues/34701")
+    def "can handle JVM system properties with quotes"() {
+        given:
+        buildFile("""
+            plugins {
+                id('application')
+            }
+
+            application {
+                mainClass = 'org.example.Main'
+                applicationName ='myapp'
+            }
+        """)
+
+        file("src/main/java/org/example/Main.java") << """
+            package org.example;
+
+            public class Main {
+                public static void main(String[] args) {
+                    System.out.print(System.getProperty("arg"));
+                }
+            }
+        """
+
+        def expected = OperatingSystem.current().isWindows()
+            ? 'foo"bar"baz'
+            : '"foo\\"bar\\"baz"'
+
+        when:
+        succeeds("installDist")
+
+        and:
+        def outputCapture = new ByteArrayOutputStream()
+        def scriptStarter = new ScriptExecuter() {
+            @Override
+            ExecHandle build() {
+                if (OperatingSystem.current().isWindows()) {
+                    def theArgs = ['/d', '/c', executable.replace('/', File.separator)] + getArgs()
+                    setArgs(theArgs)
+                    builder.executable = 'cmd.exe'
+                } else {
+                    builder.executable = "${workingDir}/${executable}"
+                }
+                builder.environment("JAVA_HOME", System.getProperty("java.home"))
+                return builder.build()
+            }
+        }
+
+        scriptStarter.workingDir = file('build/install/myapp/bin')
+        scriptStarter.executable = "myapp"
+        scriptStarter.standardOutput = outputCapture
+        scriptStarter.environment("JAVA_OPTS", '-Darg="foo\\"bar\\"baz"')
+        def result = scriptStarter.run()
+
+        then:
+        result.assertNormalExitValue()
+        outputCapture.toString() == expected
     }
 }
